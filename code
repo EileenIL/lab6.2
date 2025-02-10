@@ -1,0 +1,77 @@
+#define BUZZER_PIN 25   // Buzzer pin
+#define BUTTON_PIN 18   // Button pin
+
+// Define musical notes
+#define NOTE_C4  1047
+#define NOTE_D4  1175
+#define NOTE_E4  1319
+#define NOTE_F4  1397
+#define NOTE_G4  1568
+#define NOTE_A4  1760
+#define NOTE_B4  1976
+#define NOTE_C5  2093
+
+// Speed levels (multipliers for note duration)
+float speedLevels[] = {0.25, 0.5, 1, 1.5, 2};  
+int speedIndex = 0;  // เริ่มที่ "0.25" (index 0)
+
+// Debounce variables
+volatile unsigned long lastPressTime = 0; // เวลาที่กดปุ่มล่าสุด
+const unsigned long debounceDelay = 200;  // กำหนดดีเลย์ 200ms
+
+// Twinkle Twinkle Little Star melody
+int melody[] = {
+  NOTE_C4, NOTE_C4, NOTE_G4, NOTE_G4, NOTE_A4, NOTE_A4, NOTE_G4, 0,
+  NOTE_F4, NOTE_F4, NOTE_E4, NOTE_E4, NOTE_D4, NOTE_D4, NOTE_C4, 0,
+  NOTE_G4, NOTE_G4, NOTE_F4, NOTE_F4, NOTE_E4, NOTE_E4, NOTE_D4, 0,
+  NOTE_G4, NOTE_G4, NOTE_F4, NOTE_F4, NOTE_E4, NOTE_E4, NOTE_D4, 0,
+  NOTE_C4, NOTE_C4, NOTE_G4, NOTE_G4, NOTE_A4, NOTE_A4, NOTE_G4, 0,
+  NOTE_F4, NOTE_F4, NOTE_E4, NOTE_E4, NOTE_D4, NOTE_D4, NOTE_C4, 0
+};
+
+// Note durations (milliseconds)
+int noteDurations[] = {
+  300, 300, 300, 300, 300, 300, 600, 300,
+  300, 300, 300, 300, 300, 300, 600, 300,
+  300, 300, 300, 300, 300, 300, 600, 300,
+  300, 300, 300, 300, 300, 300, 600, 300,
+  300, 300, 300, 300, 300, 300, 600, 300,
+  300, 300, 300, 300, 300, 300, 600, 300
+};
+
+// Interrupt Service Routine (ISR) for button press
+void IRAM_ATTR changeSpeed() {
+  unsigned long currentTime = millis();
+  if (currentTime - lastPressTime > debounceDelay) {  // ตรวจสอบว่าผ่านไปอย่างน้อย 200ms
+    lastPressTime = currentTime;  // อัปเดตเวลาที่กดปุ่มล่าสุด
+    speedIndex = (speedIndex + 1) % 5;  
+    Serial.print("Speed changed to: ");
+    Serial.println(speedLevels[speedIndex]);
+  }
+}
+
+void setup() {
+  Serial.begin(115200);  // เริ่มต้น Serial Monitor
+  pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), changeSpeed, FALLING);
+}
+
+void loop() {
+  int numNotes = sizeof(melody) / sizeof(melody[0]);
+
+  for (int i = 0; i < numNotes; i++) {
+    int adjustedDuration = noteDurations[i] / speedLevels[speedIndex];  // ปรับความเร็วให้เร็วขึ้นเมื่อ speed เพิ่ม
+
+    if (melody[i] == 0) {  // Handle rest notes
+      noTone(BUZZER_PIN);
+    } else {
+      tone(BUZZER_PIN, melody[i], adjustedDuration);
+    }
+    
+    delay(adjustedDuration * 1.3);  // Short pause between notes
+    noTone(BUZZER_PIN);
+  }
+
+  delay(2000);  // Pause before repeating the song
+}
